@@ -37,27 +37,42 @@ async def run(profile: str, url: str) -> None:
     print(f"[login] user_data_dir={user_data_dir}")
     print("[login] complete login in the visible browser window, then close it to save cookies.")
 
-    async with AsyncCamoufox(
-        headless=False,
-        persistent_context=True,
-        user_data_dir=str(user_data_dir),
-        humanize=True,
-        os=("linux",),
-    ) as ctx:
-        page = await ctx.new_page()
-        await page.goto(url, wait_until="domcontentloaded")
+    try:
+        async with AsyncCamoufox(
+            headless=False,
+            persistent_context=True,
+            user_data_dir=str(user_data_dir),
+            humanize=True,
+            os=("linux",),
+        ) as ctx:
+            page = await ctx.new_page()
+            await page.goto(url, wait_until="domcontentloaded")
 
-        # Hold the context open until the operator closes the last page.
-        # camoufox/playwright fires no "context closed" event on graceful
-        # window-close, so we poll page count.
-        while True:
-            pages = ctx.pages
-            if not pages:
-                break
-            await asyncio.sleep(1.0)
+            # Hold the context open until the operator closes the last page.
+            # camoufox/playwright fires no "context closed" event on graceful
+            # window-close, so we poll page count.
+            while True:
+                try:
+                    pages = ctx.pages
+                except Exception:
+                    break  # context was torn down out from under us
+                if not pages:
+                    break
+                await asyncio.sleep(1.0)
 
-        cookies = await ctx.cookies()
-        print(f"[login] saved {len(cookies)} cookies to {user_data_dir}")
+            try:
+                cookies = await ctx.cookies()
+                print(f"[login] saved {len(cookies)} cookies to {user_data_dir}")
+            except Exception as exc:  # noqa: BLE001
+                print(f"[login] (warn) couldn't read cookies post-close: {exc}")
+    except Exception as exc:  # noqa: BLE001
+        # Playwright's Node driver occasionally crashes on uncaught Firefox
+        # console errors during session teardown ("TypeError: Cannot read
+        # properties of undefined (reading 'url')" inside coreBundle.js).
+        # That happens AFTER cookies are flushed to disk, so the login is
+        # not lost. Surface but don't fail.
+        print(f"[login] (warn) playwright teardown error: {exc}")
+    print(f"[login] profile dir on disk: {user_data_dir}")
 
 
 def main() -> None:
