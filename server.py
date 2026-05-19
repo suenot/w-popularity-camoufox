@@ -107,14 +107,20 @@ async def _do_fetch(req: FetchRequest, user_data_dir: Path) -> FetchResponse:
     # AsyncCamoufox returns a playwright Browser when persistent_context=False,
     # or a BrowserContext when persistent_context=True. Persistent contexts
     # carry cookies/localStorage between runs, which is what we want.
+    # CAMOUFOX_HEADLESS=0 (default during current debug) shows a real Firefox
+    # window so the operator can watch what the wrapper sees. Set =1 for
+    # production once parsers are stable.
+    _headless = os.environ.get("CAMOUFOX_HEADLESS", "0") not in ("0", "false", "False", "")
     async with AsyncCamoufox(
-        headless=True,
+        headless=_headless,
         persistent_context=True,
         user_data_dir=str(user_data_dir),
-        # humanize=False keeps response times snappy in production; the login
-        # helper flips this on for the headed flow.
         humanize=False,
-        os=("linux",),
+        # Desktop fingerprint: Linux UAs make Facebook fall back to mobile UI.
+        os=("macos", "windows"),
+        # Force a desktop window size (1440×900). camoufox would otherwise
+        # pick a random fingerprint that sometimes lands on phone dimensions.
+        window=(1440, 900),
     ) as ctx:
         page = await ctx.new_page()
         if req.user_agent:

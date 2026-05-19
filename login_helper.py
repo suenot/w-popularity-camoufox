@@ -43,7 +43,9 @@ async def run(profile: str, url: str) -> None:
             persistent_context=True,
             user_data_dir=str(user_data_dir),
             humanize=True,
-            os=("linux",),
+            # Desktop fingerprint: Linux UAs cause Facebook to render mobile UI.
+            os=("macos", "windows"),
+            window=(1440, 900),
         ) as ctx:
             page = await ctx.new_page()
             await page.goto(url, wait_until="domcontentloaded")
