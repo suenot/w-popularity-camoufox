@@ -25,10 +25,13 @@ if is_login_mode "$@"; then
     sleep 1
     # Lightweight WM so the headed browser has a usable parent.
     fluxbox >/dev/null 2>&1 &
-    # VNC server, no auth (the port is only exposed to the operator's host).
-    x11vnc -display "${DISPLAY:-:99}" -nopw -listen 0.0.0.0 -xkb -forever -shared -rfbport 5900 >/dev/null 2>&1 &
+    # VNC server. macOS Screen Sharing rejects `-nopw` (it always sends a
+    # password attempt during the auth handshake) so we set an explicit
+    # password — override via VNC_PASSWORD env, default "popularity".
+    VNC_PW="${VNC_PASSWORD:-popularity}"
+    x11vnc -display "${DISPLAY:-:99}" -passwd "$VNC_PW" -listen 0.0.0.0 -xkb -forever -shared -rfbport 5900 >/dev/null 2>&1 &
     VNC_PID=$!
-    echo "[entrypoint] VNC ready: vnc://localhost:5900"
+    echo "[entrypoint] VNC ready: vnc://localhost:5900  (password: $VNC_PW)"
     # On exit, tear down the background processes.
     trap 'kill $VNC_PID $XVFB_PID 2>/dev/null || true' EXIT
 fi
