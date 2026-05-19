@@ -65,7 +65,15 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # Pre-download the camoufox browser binary. This dramatically improves first-
 # request latency and means the container is self-contained (no runtime fetch
 # from GitHub releases, which could fail if network is restricted).
-RUN python -m camoufox fetch
+#
+# GITHUB_TOKEN build-arg authenticates the binary download (camoufox fetch
+# hits api.github.com/repos/daijro/camoufox/releases — anon quota is 60/hr
+# per IP and is easily exhausted). Pass via:
+#   docker compose build --build-arg GITHUB_TOKEN=$(gh auth token) camoufox
+ARG GITHUB_TOKEN=""
+ENV GITHUB_TOKEN=${GITHUB_TOKEN}
+COPY fetch_browser.py /app/fetch_browser.py
+RUN python /app/fetch_browser.py
 
 COPY server.py login_helper.py entrypoint.sh /app/
 RUN chmod +x /app/entrypoint.sh
